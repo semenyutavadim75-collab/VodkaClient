@@ -3,6 +3,7 @@ const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000; // Render даёт порт, локально fallback 3000
@@ -38,8 +39,7 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
     uid INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
-    hwid TEXT DEFAULT NULL,
-    hwid_set_at DATETIME DEFAULT NULL,
+    hwid TEXT UNIQUE NOT NULL,
     subscription_type TEXT DEFAULT NULL,
     subscription_expires DATETIME DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -57,6 +57,11 @@ db.run(`CREATE TABLE IF NOT EXISTS keys (
     used_at DATETIME DEFAULT NULL
 )`);
 
+// Функция генерации уникального HWID
+function generateHwid() {
+    return 'HWID-' + crypto.randomBytes(16).toString('hex').toUpperCase();
+}
+
 // API: Регистрация
 app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
@@ -66,14 +71,16 @@ app.post('/api/register', async (req, res) => {
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashedPassword], function(err) {
+        const hwid = generateHwid();
+        
+        db.run('INSERT INTO users (username, password, hwid) VALUES (?, ?, ?)', [username, hashedPassword, hwid], function(err) {
             if (err) {
                 if (err.message.includes('UNIQUE')) return res.status(400).json({ success: false, message: 'Пользователь уже существует' });
                 return res.status(500).json({ success: false, message: 'Ошибка сервера' });
             }
             req.session.userId = this.lastID;
             req.session.username = username;
-            res.json({ success: true, message: 'Регистрация успешна!', uid: this.lastID, username });
+            res.json({ success: true, message: 'Регистрация успешна!', uid: this.lastID, username, hwid });
         });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Ошибка сервера' });
@@ -132,7 +139,7 @@ app.post('/api/logout', (req, res) => {
 
 // API: Админ-панель — все пользователи
 app.get('/api/admin/users', (req, res) => {
-    db.all('SELECT uid, username, created_at, subscription_type, subscription_expires, hwid, hwid_set_at FROM users ORDER BY uid', [], (err, users) => {
+    db.all('SELECT uid, username, hwid, created_at, subscription_type, subscription_expires FROM users ORDER BY uid', [], (err, users) => {
         if (err) return res.status(500).json({ success: false, message: 'Ошибка сервера' });
         res.json({ success: true, users });
     });
@@ -144,20 +151,6 @@ app.post('/api/admin/delete-user', (req, res) => {
     db.run('DELETE FROM users WHERE uid = ?', [uid], function(err) {
         if (err) return res.status(500).json({ success: false, message: 'Ошибка сервера' });
         res.json({ success: true, message: 'Пользователь удален' });
-    });
-});
-
-// API: Сброс HWID пользователя
-app.post('/api/admin/reset-hwid', (req, res) => {
-    const { uid } = req.body;
-    if (!uid) return res.status(400).json({ success: false, message: 'UID не указан' });
-    
-    db.run('UPDATE users SET hwid = NULL, hwid_set_at = NULL WHERE uid = ?', [uid], function(err) {
-        if (err) return res.status(500).json({ success: false, message: 'Ошибка сервера' });
-        if (this.changes === 0) return res.status(404).json({ success: false, message: 'Пользователь не найден' });
-        
-        console.log(`✅ HWID сброшен для пользователя UID=${uid}`);
-        res.json({ success: true, message: 'HWID сброшен' });
     });
 });
 
@@ -227,20 +220,12 @@ app.post('/api/activate-key', (req, res) => {
 
 // API: Проверка подписки по логину и паролю (для лоадера)
 app.post('/api/launcher/check-subscription', async (req, res) => {
-    const { username, password, hwid } = req.body;
+    const { username, password } = req.body;
     
     if (!username || !password) {
         return res.status(400).json({ 
             success: false, 
             message: 'Введите логин и пароль',
-            has_subscription: false
-        });
-    }
-
-    if (!hwid) {
-        return res.status(400).json({ 
-            success: false, 
-            message: 'HWID не передан',
             has_subscription: false
         });
     }
@@ -270,27 +255,6 @@ app.post('/api/launcher/check-subscription', async (req, res) => {
                 message: 'Неверный логин или пароль',
                 has_subscription: false
             });
-        }
-
-        // Проверка HWID
-        if (user.hwid && user.hwid !== hwid) {
-            console.log(`⚠️ HWID mismatch for user ${username}: stored=${user.hwid}, received=${hwid}`);
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Устройство не совпадает. Обратитесь в поддержку для сброса HWID',
-                has_subscription: false,
-                hwid_mismatch: true
-            });
-        }
-
-        // Если HWID не установлен, сохраняем его
-        if (!user.hwid) {
-            db.run('UPDATE users SET hwid = ?, hwid_set_at = CURRENT_TIMESTAMP WHERE uid = ?', 
-                [hwid, user.uid], (err) => {
-                    if (err) console.error('Ошибка сохранения HWID:', err);
-                    else console.log(`✅ HWID установлен для пользователя ${username}: ${hwid}`);
-                }
-            );
         }
 
         // Проверка подписки

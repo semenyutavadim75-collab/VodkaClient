@@ -1203,12 +1203,12 @@ registerForm.addEventListener('submit', async (e) => {
         const data = await response.json();
         
         if (data.success) {
-            showSuccess(`Регистрация успешна! Ваш UID: ${data.uid}`);
+            showSuccess(`Регистрация успешна!\nВаш UID: ${data.uid}\nВаш HWID: ${data.hwid}\n\nСохраните HWID для входа в лоудер!`);
             setTimeout(() => {
                 updateUserInfo(data.username, data.uid);
                 authModal.classList.remove('active');
                 registerForm.reset();
-            }, 2000);
+            }, 5000);
         } else {
             showError(data.message);
         }
