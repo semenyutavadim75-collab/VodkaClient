@@ -432,10 +432,8 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 // Скачивание клиента
 document.getElementById('downloadClientBtn').addEventListener('click', (e) => {
     e.preventDefault();
-    // Здесь можно добавить ссылку на скачивание клиента
-    alert('Функция скачивания клиента будет доступна позже!\n\nСвяжитесь с поддержкой для получения клиента: https://t.me/SmertnixVteste');
-    // Или перенаправить на страницу скачивания:
-    // window.location.href = 'https://example.com/download/vodka-client.exe';
+    const loaderUrl = 'https://www.dropbox.com/scl/fi/2zbuk1s0opsmjl21zrsd3/VodkaClient.exe?rlkey=vt6dzy7evnbxr8rosnidyyaio&st=caeou3b8&dl=1';
+    window.open(loaderUrl, '_blank');
 });
 
 // Загрузка при открытии страницы

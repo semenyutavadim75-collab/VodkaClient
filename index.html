@@ -914,7 +914,7 @@ nav {
     <div class="logo">VodkaClient</div>
     <div class="nav-links">
         <a href="https://t.me/SmertnixVteste" target="_blank">Поддержка</a>
-        <a href="#">Скачать лаунчер</a>
+        <a href="#" id="downloadBtn">Скачать лаунчер</a>
         <a href="#" id="buyBtn">Купить</a>
         <div class="lang-selector" id="langSelector">
             <span>Русский</span>
@@ -1303,6 +1303,14 @@ detailsBtn.addEventListener('click', () => {
     document.querySelector('.features').scrollIntoView({ 
         behavior: 'smooth' 
     });
+});
+
+// Кнопка "Скачать лаунчер"
+const downloadBtn = document.getElementById('downloadBtn');
+downloadBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const loaderUrl = 'https://www.dropbox.com/scl/fi/2zbuk1s0opsmjl21zrsd3/VodkaClient.exe?rlkey=vt6dzy7evnbxr8rosnidyyaio&st=caeou3b8&dl=1';
+    window.open(loaderUrl, '_blank');
 });
 
 // Кнопка "Русский" - показывает доступные языки
