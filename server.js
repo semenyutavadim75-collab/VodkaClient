@@ -352,6 +352,45 @@ app.post('/api/admin/reset-hwid', async (req, res) => {
     }
 });
 
+// API: ПОЛНЫЙ СБРОС БАЗЫ ДАННЫХ (ОПАСНО!)
+app.post('/api/admin/reset-database', async (req, res) => {
+    const { confirm_password } = req.body;
+    
+    // Проверка пароля
+    if (confirm_password !== 'RESET_ALL_DATA_2024') {
+        return res.status(403).json({ success: false, message: 'Неверный пароль подтверждения' });
+    }
+    
+    try {
+        // Удаляем все данные
+        await pool.query('DELETE FROM users');
+        await pool.query('DELETE FROM keys');
+        
+        // Сбрасываем счетчики
+        await pool.query('ALTER SEQUENCE users_uid_seq RESTART WITH 1');
+        await pool.query('ALTER SEQUENCE keys_id_seq RESTART WITH 1');
+        
+        console.log('⚠️ БАЗА ДАННЫХ ПОЛНОСТЬЮ ОЧИЩЕНА!');
+        
+        res.json({ success: true, message: 'База данных полностью очищена. Все пользователи и ключи удалены.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Ошибка сервера' });
+    }
+});
+
+// API: Сброс только счетчика UID (пользователи уже удалены)
+app.post('/api/admin/reset-uid-sequence', async (req, res) => {
+    try {
+        await pool.query('ALTER SEQUENCE users_uid_seq RESTART WITH 1');
+        console.log('✅ Счетчик UID сброшен на 1');
+        res.json({ success: true, message: 'Счетчик UID сброшен. Следующий пользователь получит UID = 1' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Ошибка сервера' });
+    }
+});
+
 // Запуск сервера
 app.listen(PORT, () => {
     console.log(`🚀 Сервер запущен на порту ${PORT}`);
