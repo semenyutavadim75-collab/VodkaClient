@@ -318,6 +318,7 @@ nav {
                 <tr>
                     <th>UID</th>
                     <th>Логин</th>
+                    <th>HWID</th>
                     <th>Подписка</th>
                     <th>Дата регистрации</th>
                     <th>Действия</th>
@@ -460,12 +461,20 @@ async function loadAdminData() {
                     }
                 }
                 
+                // HWID отображение
+                let hwidText = '<span style="color: rgba(255,255,255,0.3);">Не установлен</span>';
+                if (user.hwid) {
+                    hwidText = `<span style="font-family: monospace; font-size: 11px; color: #55ff55;">${user.hwid.substring(0, 16)}...</span>`;
+                }
+                
                 tr.innerHTML = `
                     <td><strong>${user.uid}</strong></td>
                     <td>${user.username}</td>
+                    <td>${hwidText}</td>
                     <td>${subscriptionText}</td>
                     <td>${date}</td>
                     <td>
+                        <button class="btn-delete" onclick="resetHwid(${user.uid}, '${user.username}')" style="background: rgba(255, 150, 50, 0.2); border-color: rgba(255, 150, 50, 0.5); color: #ff9955; margin-right: 5px;">Сбросить HWID</button>
                         <button class="btn-delete" onclick="deleteUser(${user.uid}, '${user.username}')">Удалить</button>
                     </td>
                 `;
@@ -582,6 +591,32 @@ async function deleteUser(uid, username) {
         }
     } catch (error) {
         alert('Ошибка соединения');
+    }
+}
+
+// Сброс HWID пользователя
+async function resetHwid(uid, username) {
+    if (!confirm(`Сбросить HWID для пользователя "${username}" (UID: ${uid})?\n\nПользователь сможет войти с нового устройства.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/admin/reset-hwid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ HWID сброшен! Пользователь может войти с нового устройства.');
+            loadAdminData();
+        } else {
+            alert('❌ Ошибка: ' + data.message);
+        }
+    } catch (error) {
+        alert('❌ Ошибка соединения');
     }
 }
 
